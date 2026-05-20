@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jobs}
+      POSTGRES_USER: ${POSTGRES_USER:-jobs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jobs}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobs} -d ${POSTGRES_DB:-jobs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      API_KEYS: ${API_KEYS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./worker
+    environment:
+      DATABASE_URL_PG: ${DATABASE_URL_PG}
+      REDIS_URL: ${REDIS_URL}
+      WORKER_ID: ${WORKER_ID:-worker-1}
+      WORKER_FAILURE_RATE: ${WORKER_FAILURE_RATE:-0.1}
+      WORKER_MIN_MS: ${WORKER_MIN_MS:-5000}
+      WORKER_MAX_MS: ${WORKER_MAX_MS:-15000}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-/api}
+        VITE_EVENTS_BASE: ${VITE_EVENTS_BASE:-/events}
+        VITE_API_KEY: ${VITE_API_KEY:-dev-key-1}
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

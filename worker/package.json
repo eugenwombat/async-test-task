@@ -1,0 +1,23 @@
+{
+  "name": "async-jobs-worker",
+  "version": "0.1.0",
+  "description": "BullMQ worker that processes async jobs and publishes status updates",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bullmq": "^5.12.0",
+    "ioredis": "^5.4.1",
+    "pg": "^8.11.5",
+    "pino": "^9.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
